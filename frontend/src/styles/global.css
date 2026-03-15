@@ -1,0 +1,42 @@
+/* src/styles/global.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-white text-marso-text antialiased;
+        font-feature-settings: "liga" 1, "calt" 1;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-serif tracking-tight;
+    }
+
+    button, a {
+        @apply transition-all duration-200 ease-in-out;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply bg-marso px-6 py-3 text-white font-medium rounded-xl hover:bg-marso-dark active:scale-[0.98] shadow-premium hover:shadow-premium-sm focus:outline-none focus:ring-2 focus:ring-marso-light focus:ring-offset-2;
+    }
+
+    .btn-outline {
+        @apply border border-marso text-marso px-6 py-3 font-medium rounded-xl hover:bg-marso-50 active:scale-[0.98];
+    }
+
+    .card {
+        @apply bg-white rounded-2xl border border-marso-border shadow-premium-sm p-6 md:p-8;
+    }
+
+    .section-title {
+        @apply text-3xl md:text-4xl font-serif font-bold text-marso-text mb-3;
+    }
+
+    .section-subtitle {
+        @apply text-lg text-marso-text-muted mb-8;
+    }
+}
