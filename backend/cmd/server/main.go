@@ -62,9 +62,8 @@ func main() {
 		admin.GET("/clients/:id", handlers.Admin.GetClientById)
 		admin.POST("/visits-with-bonus", handlers.Visit.CreateVisitWithBonus)
 		admin.POST("/scan-qr", handlers.Loyalty.ScanQR)
-		admin.GET("/barbers", handlers.Admin.GetAllBarbers)
 		admin.GET("/clients/:id/balance", handlers.Admin.GetClientBalance)
-
+		client.GET("/referral-stats", handlers.Refer.GetReferralStats)
 		// Статистика с поддержкой фильтров по периоду
 		admin.GET("/stats", func(c *gin.Context) {
 			period := c.Query("period")

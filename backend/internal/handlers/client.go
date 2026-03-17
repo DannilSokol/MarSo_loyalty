@@ -26,9 +26,29 @@ func (h *ClientHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, client)
-}
+	// Получаем реферальную статистику
+	referralStats, err := repository.Repo.GetReferralStats(c.Request.Context(), client.ID)
+	if err != nil {
+		// Если ошибка — просто возвращаем пустую статистику, чтобы фронт не падал
+		referralStats = &models.ReferralStats{
+			Count:  0,
+			Earned: 0,
+		}
+	}
 
+	// Отправляем единый JSON
+	c.JSON(http.StatusOK, gin.H{
+		"id":             client.ID,
+		"name":           client.Name,
+		"phone":          client.Phone,
+		"email":          client.Email,
+		"balance":        client.Balance,
+		"level":          client.Level,
+		"total_spent":    client.TotalSpent,
+		"created_at":     client.CreatedAt,
+		"referral_stats": referralStats,
+	})
+}
 func (h *ClientHandler) UpdateProfile(c *gin.Context) {
 	var req models.ClientUpdate
 	if err := c.ShouldBindJSON(&req); err != nil {

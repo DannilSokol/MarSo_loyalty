@@ -29,7 +29,7 @@ func (r *Repository) GetClientByNormalizedPhone(ctx context.Context, normPhone s
 
 	err := database.DB.QueryRow(ctx,
 		`SELECT id, phone, normalized_phone, name, email, created_at, total_spent, balance, level, referred_by
-         FROM clients WHERE normalized_phone = $1`,
+		 FROM clients WHERE normalized_phone = $1`,
 		normPhone,
 	).Scan(
 		&client.ID, &client.Phone, &client.NormalizedPhone, &name, &email,
@@ -116,7 +116,7 @@ func (r *Repository) GetClientByID(ctx context.Context, id uuid.UUID) (*models.C
 
 	err := database.DB.QueryRow(ctx,
 		`SELECT id, phone, normalized_phone, name, email, created_at, total_spent, balance, level, referred_by
-         FROM clients WHERE id = $1`,
+		 FROM clients WHERE id = $1`,
 		id,
 	).Scan(
 		&client.ID, &client.Phone, &client.NormalizedPhone, &name, &email,
@@ -140,10 +140,10 @@ func (r *Repository) GetClientByID(ctx context.Context, id uuid.UUID) (*models.C
 		client.ReferredBy = *referredBy
 	}
 
-	// Загружаем визиты (без barber_id)
+	// Визиты клиента (без barber_id)
 	rows, err := database.DB.Query(ctx,
 		`SELECT id, client_id, amount, bonus_amount, note, created_at
-         FROM visits WHERE client_id = $1 ORDER BY created_at DESC`,
+		 FROM visits WHERE client_id = $1 ORDER BY created_at DESC`,
 		id,
 	)
 	if err != nil {
@@ -169,7 +169,7 @@ func (r *Repository) GetClientByID(ctx context.Context, id uuid.UUID) (*models.C
 func (r *Repository) GetAllClients(ctx context.Context) ([]models.Client, error) {
 	rows, err := database.DB.Query(ctx,
 		`SELECT id, phone, normalized_phone, name, email, created_at, total_spent, balance, level
-         FROM clients ORDER BY created_at DESC`,
+		 FROM clients ORDER BY created_at DESC`,
 	)
 	if err != nil {
 		log.Printf("GetAllClients query error: %v", err)
@@ -313,13 +313,13 @@ func (r *Repository) DowngradeInactiveClients(ctx context.Context) error {
 
 	result, err := database.DB.Exec(ctx,
 		`UPDATE clients
-         SET level = CASE
-             WHEN level = 'gold' AND last_visit_at < $1 THEN 'silver'
-             WHEN level = 'silver' AND last_visit_at < $1 THEN 'bronze'
-             ELSE level
-         END,
-         updated_at = NOW()
-         WHERE last_visit_at < $1 AND last_visit_at IS NOT NULL`,
+		 SET level = CASE
+		     WHEN level = 'gold' AND last_visit_at < $1 THEN 'silver'
+		     WHEN level = 'silver' AND last_visit_at < $1 THEN 'bronze'
+		     ELSE level
+		 END,
+		 updated_at = NOW()
+		 WHERE last_visit_at < $1 AND last_visit_at IS NOT NULL`,
 		sixMonthsAgo,
 	)
 	if err != nil {
@@ -342,7 +342,7 @@ func (r *Repository) createTransactionInTx(ctx context.Context,
 
 	_, err := tx.Exec(ctx,
 		`INSERT INTO transactions (client_id, type, amount, description, visit_id)
-         VALUES ($1, $2, $3, $4, $5)`,
+		 VALUES ($1, $2, $3, $4, $5)`,
 		clientID, transType, amount, description, visitID,
 	)
 	if err != nil {
@@ -383,7 +383,7 @@ func (r *Repository) BurnInactiveBonuses(ctx context.Context, tx pgx.Tx, clientI
 
 		_, err = tx.Exec(ctx,
 			`INSERT INTO transactions (client_id, type, amount, description, created_at)
-             VALUES ($1, 'expiry', $2, 'Сгорание всех бонусов за неактивность более 180 дней', NOW())`,
+			 VALUES ($1, 'expiry', $2, 'Сгорание всех бонусов за неактивность более 180 дней', NOW())`,
 			clientID, -currentBalance,
 		)
 		if err != nil {
@@ -399,7 +399,7 @@ func (r *Repository) BurnInactiveBonuses(ctx context.Context, tx pgx.Tx, clientI
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Визиты — УБРАЛИ barberID полностью
+// Визиты — без barber_id
 // ─────────────────────────────────────────────────────────────────────────────
 
 func (r *Repository) CreateVisit(ctx context.Context, clientID uuid.UUID, amount float64, bonusAmount float64, note string) (*models.Visit, error) {
@@ -433,8 +433,8 @@ func (r *Repository) CreateVisitWithBonus(ctx context.Context,
 	// INSERT без barber_id
 	err = tx.QueryRow(ctx,
 		`INSERT INTO visits (client_id, amount, bonus_amount, note)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, client_id, amount, bonus_amount, created_at, note`,
+		 VALUES ($1, $2, $3, $4)
+		 RETURNING id, client_id, amount, bonus_amount, created_at, note`,
 		clientID, amount, bonusAmount, note,
 	).Scan(&visit.ID, &visit.ClientID, &visit.Amount, &visit.BonusAmount, &visit.CreatedAt, &visit.Note)
 	if err != nil {
@@ -471,10 +471,10 @@ func (r *Repository) CreateVisitWithBonus(ctx context.Context,
 		if bonus > 0 {
 			_, err = tx.Exec(ctx,
 				`UPDATE clients
-                 SET balance = balance + $1,
-                     total_spent = total_spent + $2,
-                     last_visit_at = NOW()
-                 WHERE id = $3`,
+				 SET balance = balance + $1,
+				     total_spent = total_spent + $2,
+				     last_visit_at = NOW()
+				 WHERE id = $3`,
 				bonus, realSpent, clientID,
 			)
 			if err != nil {
@@ -495,9 +495,9 @@ func (r *Repository) CreateVisitWithBonus(ctx context.Context,
 	} else {
 		_, err = tx.Exec(ctx,
 			`UPDATE clients
-             SET total_spent = total_spent + $1,
-                 last_visit_at = NOW()
-             WHERE id = $2`,
+			 SET total_spent = total_spent + $1,
+			     last_visit_at = NOW()
+			 WHERE id = $2`,
 			realSpent, clientID,
 		)
 		if err != nil {
@@ -567,7 +567,7 @@ func (r *Repository) spendBonusesInTx(ctx context.Context, tx pgx.Tx, clientID u
 
 	_, err = tx.Exec(ctx,
 		`INSERT INTO transactions (client_id, type, amount, description, visit_id, created_at)
-         VALUES ($1, 'redemption', $2, 'Списание бонусов при оплате визита', $3, NOW())`,
+		 VALUES ($1, 'redemption', $2, 'Списание бонусов при оплате визита', $3, NOW())`,
 		clientID, -toSpend, visitID,
 	)
 	if err != nil {
@@ -583,43 +583,6 @@ func (r *Repository) spendBonusesInTx(ctx context.Context, tx pgx.Tx, clientID u
 // Реферальная система
 // ─────────────────────────────────────────────────────────────────────────────
 
-func (r *Repository) accrueReferralBonus(ctx context.Context, tx pgx.Tx, clientID uuid.UUID, visitID uuid.UUID) {
-	var referrerID uuid.UUID
-	err := tx.QueryRow(ctx,
-		`SELECT referred_by FROM clients WHERE id = $1 AND referred_by IS NOT NULL`,
-		clientID,
-	).Scan(&referrerID)
-	if err != nil || referrerID == uuid.Nil {
-		return // нет реферала или ошибка
-	}
-
-	const bonusAmount = 300.0
-
-	// Начисляем пригласившему
-	_, err = tx.Exec(ctx,
-		`UPDATE clients SET balance = balance + $1, updated_at = NOW() WHERE id = $2`,
-		bonusAmount, referrerID,
-	)
-	if err != nil {
-		log.Printf("Referral to referrer failed: %v", err)
-		return
-	}
-	r.createTransactionInTx(ctx, tx, referrerID, "accrual", bonusAmount, "Реферальный бонус за друга", visitID)
-
-	// Начисляем новому клиенту
-	_, err = tx.Exec(ctx,
-		`UPDATE clients SET balance = balance + $1, updated_at = NOW() WHERE id = $2`,
-		bonusAmount, clientID,
-	)
-	if err != nil {
-		log.Printf("Referral to new client failed: %v", err)
-		return
-	}
-	r.createTransactionInTx(ctx, tx, clientID, "accrual", bonusAmount, "Реферальный бонус за первый визит", visitID)
-
-	log.Printf("Referral bonus 300₽ each: new=%s ← referrer=%s", clientID, referrerID)
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Вспомогательные
 // ─────────────────────────────────────────────────────────────────────────────
@@ -634,7 +597,7 @@ func min(a, b float64) float64 {
 func (r *Repository) GetClientVisits(ctx context.Context, clientID uuid.UUID) ([]models.Visit, error) {
 	rows, err := database.DB.Query(ctx,
 		`SELECT id, client_id, amount, bonus_amount, note, created_at
-         FROM visits WHERE client_id = $1 ORDER BY created_at DESC`,
+		 FROM visits WHERE client_id = $1 ORDER BY created_at DESC`,
 		clientID,
 	)
 	if err != nil {
@@ -670,7 +633,7 @@ func (r *Repository) GetClientBalance(ctx context.Context, clientID uuid.UUID) (
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QR-токены и барберы
+// QR-токены
 // ─────────────────────────────────────────────────────────────────────────────
 
 func (r *Repository) CreateQRToken(ctx context.Context, clientID uuid.UUID) (*models.QRToken, error) {
@@ -680,8 +643,8 @@ func (r *Repository) CreateQRToken(ctx context.Context, clientID uuid.UUID) (*mo
 	var qrToken models.QRToken
 	err := database.DB.QueryRow(ctx,
 		`INSERT INTO qr_tokens (client_id, token, expires_at)
-         VALUES ($1, $2, $3)
-         RETURNING id, client_id, token, used, expires_at, created_at`,
+		 VALUES ($1, $2, $3)
+		 RETURNING id, client_id, token, used, expires_at, created_at`,
 		clientID, token, expiresAt,
 	).Scan(&qrToken.ID, &qrToken.ClientID, &qrToken.Token, &qrToken.Used,
 		&qrToken.ExpiresAt, &qrToken.CreatedAt)
@@ -700,11 +663,11 @@ func (r *Repository) ValidateQRToken(ctx context.Context, token string) (*models
 
 	err := database.DB.QueryRow(ctx,
 		`UPDATE qr_tokens
-         SET used = TRUE
-         WHERE token = $1
-           AND used = FALSE
-           AND expires_at > NOW()
-         RETURNING client_id`,
+		 SET used = TRUE
+		 WHERE token = $1
+		   AND used = FALSE
+		   AND expires_at > NOW()
+		 RETURNING client_id`,
 		token,
 	).Scan(&clientID)
 	if err == pgx.ErrNoRows {
@@ -717,7 +680,7 @@ func (r *Repository) ValidateQRToken(ctx context.Context, token string) (*models
 
 	err = database.DB.QueryRow(ctx,
 		`SELECT id, phone, normalized_phone, name, email, created_at, total_spent, balance, level
-         FROM clients WHERE id = $1`,
+		 FROM clients WHERE id = $1`,
 		clientID,
 	).Scan(&client.ID, &client.Phone, &client.NormalizedPhone, &name, &email,
 		&client.CreatedAt, &client.TotalSpent, &client.Balance, &client.Level)
@@ -736,74 +699,8 @@ func (r *Repository) ValidateQRToken(ctx context.Context, token string) (*models
 	return &client, nil
 }
 
-func (r *Repository) GetAllBarbers(ctx context.Context) ([]models.Barber, error) {
-	rows, err := database.DB.Query(ctx,
-		`SELECT id, name, nickname, photo_url, is_active, created_at, updated_at
-         FROM barbers WHERE is_active = TRUE ORDER BY name`,
-	)
-	if err != nil {
-		log.Printf("GetAllBarbers query error: %v", err)
-		return nil, err
-	}
-	defer rows.Close()
-
-	var barbers []models.Barber
-	for rows.Next() {
-		var b models.Barber
-		var nickname, photoURL *string
-		err := rows.Scan(&b.ID, &b.Name, &nickname, &photoURL, &b.IsActive, &b.CreatedAt, &b.UpdatedAt)
-		if err != nil {
-			log.Printf("GetAllBarbers scan error: %v", err)
-			return nil, err
-		}
-		if nickname != nil {
-			b.Nickname = *nickname
-		} else {
-			b.Nickname = ""
-		}
-		if photoURL != nil {
-			b.PhotoURL = *photoURL
-		} else {
-			b.PhotoURL = ""
-		}
-		barbers = append(barbers, b)
-	}
-	return barbers, nil
-}
-
-func (r *Repository) GetBarberByID(ctx context.Context, id int) (*models.Barber, error) {
-	var b models.Barber
-	var nickname, photoURL *string
-
-	err := database.DB.QueryRow(ctx,
-		`SELECT id, name, nickname, photo_url, is_active, created_at, updated_at
-         FROM barbers WHERE id = $1`,
-		id,
-	).Scan(&b.ID, &b.Name, &nickname, &photoURL, &b.IsActive, &b.CreatedAt, &b.UpdatedAt)
-	if err == pgx.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		log.Printf("GetBarberByID error: %v", err)
-		return nil, err
-	}
-
-	if nickname != nil {
-		b.Nickname = *nickname
-	} else {
-		b.Nickname = ""
-	}
-	if photoURL != nil {
-		b.PhotoURL = *photoURL
-	} else {
-		b.PhotoURL = ""
-	}
-
-	return &b, nil
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Новая статистика для дашборда — с фильтром по датам
+// Статистика для дашборда — без мастеров
 // ─────────────────────────────────────────────────────────────────────────────
 
 func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*models.AdminStats, error) {
@@ -820,9 +717,9 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 	// Revenue
 	err := database.DB.QueryRow(ctx,
 		`SELECT
-            COALESCE(SUM(amount) FILTER (WHERE created_at >= $1 AND created_at <= $2), 0) AS period_total,
-            COALESCE(SUM(amount), 0) AS total
-         FROM visits`,
+			COALESCE(SUM(amount) FILTER (WHERE created_at >= $1 AND created_at <= $2), 0) AS period_total,
+			COALESCE(SUM(amount), 0) AS total
+		 FROM visits`,
 		start, end,
 	).Scan(
 		&stats.Revenue.ThisMonth,
@@ -833,15 +730,15 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 		return nil, err
 	}
 
-	// Growth (предыдущий период той же длительности)
+	// Growth (предыдущий аналогичный период)
 	duration := end.Sub(start)
 	prevStart := start.Add(-duration)
 	prevEnd := start
 	var prevPeriod float64
 	err = database.DB.QueryRow(ctx,
 		`SELECT COALESCE(SUM(amount), 0)
-         FROM visits
-         WHERE created_at >= $1 AND created_at < $2`,
+		 FROM visits
+		 WHERE created_at >= $1 AND created_at < $2`,
 		prevStart, prevEnd,
 	).Scan(&prevPeriod)
 	if err != nil {
@@ -855,9 +752,9 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 	// Visits
 	err = database.DB.QueryRow(ctx,
 		`SELECT
-            COUNT(*) FILTER (WHERE created_at >= $1 AND created_at <= $2) AS period_count,
-            AVG(amount) FILTER (WHERE created_at >= $1 AND created_at <= $2) AS avg_check
-         FROM visits`,
+			COUNT(*) FILTER (WHERE created_at >= $1 AND created_at <= $2) AS period_count,
+			AVG(amount) FILTER (WHERE created_at >= $1 AND created_at <= $2) AS avg_check
+		 FROM visits`,
 		start, end,
 	).Scan(
 		&stats.Visits.ThisMonth,
@@ -871,13 +768,13 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 	// Clients
 	err = database.DB.QueryRow(ctx,
 		`SELECT
-            COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE created_at >= $1 AND created_at <= $2) AS new_in_period,
-            (SELECT COUNT(DISTINCT v.client_id)
-             FROM visits v
-             WHERE v.created_at >= $1 AND v.created_at <= $2) AS active_in_period,
-            AVG(total_spent) AS avg_ltv
-         FROM clients`,
+			COUNT(*) AS total,
+			COUNT(*) FILTER (WHERE created_at >= $1 AND created_at <= $2) AS new_in_period,
+			(SELECT COUNT(DISTINCT v.client_id)
+			 FROM visits v
+			 WHERE v.created_at >= $1 AND v.created_at <= $2) AS active_in_period,
+			AVG(total_spent) AS avg_ltv
+		 FROM clients`,
 		start, end,
 	).Scan(
 		&stats.Clients.Total,
@@ -896,15 +793,15 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 		stats.Clients.ChurnRate30Days = (float64(inactive) / float64(stats.Clients.Total)) * 100
 	}
 
-	// Loyalty (транзакции за период)
+	// Loyalty
 	err = database.DB.QueryRow(ctx,
 		`SELECT
-            COALESCE(SUM(c.balance), 0) AS total_balance,
-            COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'accrual' AND t.created_at >= $1 AND t.created_at <= $2), 0) AS accrued,
-            COALESCE(SUM(ABS(t.amount)) FILTER (WHERE t.type = 'redemption' AND t.created_at >= $1 AND t.created_at <= $2), 0) AS redeemed,
-            COALESCE(SUM(ABS(t.amount)) FILTER (WHERE t.type = 'expiry' AND t.created_at >= $1 AND t.created_at <= $2), 0) AS expired
-         FROM clients c
-         LEFT JOIN transactions t ON c.id = t.client_id`,
+			COALESCE(SUM(c.balance), 0) AS total_balance,
+			COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'accrual' AND t.created_at >= $1 AND t.created_at <= $2), 0) AS accrued,
+			COALESCE(SUM(ABS(t.amount)) FILTER (WHERE t.type = 'redemption' AND t.created_at >= $1 AND t.created_at <= $2), 0) AS redeemed,
+			COALESCE(SUM(ABS(t.amount)) FILTER (WHERE t.type = 'expiry' AND t.created_at >= $1 AND t.created_at <= $2), 0) AS expired
+		 FROM clients c
+		 LEFT JOIN transactions t ON c.id = t.client_id`,
 		start, end,
 	).Scan(
 		&stats.Loyalty.TotalBalance,
@@ -917,10 +814,10 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 		return nil, err
 	}
 
-	// Breakdown by level (кумулятивно)
+	// Breakdown by level
 	rows, err := database.DB.Query(ctx,
 		`SELECT level, COUNT(*), COALESCE(SUM(total_spent), 0)
-         FROM clients GROUP BY level`,
+		 FROM clients GROUP BY level`,
 	)
 	if err != nil {
 		log.Printf("GetAdminStats breakdown error: %v", err)
@@ -946,18 +843,18 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 		}
 	}
 
-	// Top clients (визиты за период)
+	// Top clients (по расходам, за период)
 	topClientRows, err := database.DB.Query(ctx,
 		`SELECT
-            c.phone,
-            c.name,
-            c.level,
-            c.total_spent,
-            (SELECT COUNT(*) FROM visits v WHERE v.client_id = c.id AND v.created_at >= $1 AND v.created_at <= $2) AS visits,
-            (SELECT MAX(v.created_at)::text FROM visits v WHERE v.client_id = c.id AND v.created_at >= $1 AND v.created_at <= $2) AS last_visit
-         FROM clients c
-         ORDER BY c.total_spent DESC
-         LIMIT 5`,
+			c.phone,
+			c.name,
+			c.level,
+			c.total_spent,
+			(SELECT COUNT(*) FROM visits v WHERE v.client_id = c.id AND v.created_at >= $1 AND v.created_at <= $2) AS visits,
+			(SELECT MAX(v.created_at)::text FROM visits v WHERE v.client_id = c.id AND v.created_at >= $1 AND v.created_at <= $2) AS last_visit
+		 FROM clients c
+		 ORDER BY c.total_spent DESC
+		 LIMIT 5`,
 		start, end,
 	)
 	if err != nil {
@@ -982,52 +879,75 @@ func (r *Repository) GetAdminStats(ctx context.Context, start, end time.Time) (*
 		stats.TopClients = append(stats.TopClients, tc)
 	}
 
-	// Top barbers (можно потом удалить, пока оставляем)
-	topBarberRows, err := database.DB.Query(ctx,
-		`SELECT
-            b.name,
-            COALESCE(SUM(v.amount), 0) AS revenue,
-            COUNT(v.id) AS visits,
-            AVG(v.amount) AS avg_check
-         FROM barbers b
-         LEFT JOIN visits v ON b.id = v.barber_id
-         GROUP BY b.id, b.name
-         ORDER BY revenue DESC
-         LIMIT 5`,
-	)
-	if err != nil {
-		log.Printf("GetAdminStats top barbers error: %v", err)
-		return nil, err
-	}
-	defer topBarberRows.Close()
-
-	for topBarberRows.Next() {
-		var tb struct {
-			Name      string  `json:"name"`
-			Revenue   float64 `json:"revenue"`
-			Visits    int     `json:"visits"`
-			AvgCheck  float64 `json:"avg_check"`
-			TopClient string  `json:"top_client,omitempty"`
-		}
-		topBarberRows.Scan(&tb.Name, &tb.Revenue, &tb.Visits, &tb.AvgCheck)
-
-		// Топ клиент барбера (можно потом удалить)
-		var topClientPhone string
-		err = database.DB.QueryRow(ctx,
-			`SELECT c.phone
-             FROM clients c
-             JOIN visits v ON c.id = v.client_id
-             WHERE v.barber_id = (SELECT id FROM barbers WHERE name = $1)
-             GROUP BY c.id, c.phone
-             ORDER BY SUM(v.amount) DESC
-             LIMIT 1`,
-			tb.Name,
-		).Scan(&topClientPhone)
-		if err == nil {
-			tb.TopClient = topClientPhone
-		}
-		stats.TopBarbers = append(stats.TopBarbers, tb)
-	}
+	// Топ-мастера удалены полностью — поле TopBarbers не заполняется
+	// Если в модели AdminStats есть поле TopBarbers — оно останется пустым массивом или nil
 
 	return stats, nil
+}
+func (r *Repository) accrueReferralBonus(ctx context.Context, tx pgx.Tx, clientID uuid.UUID, visitID uuid.UUID) {
+	var referrerID uuid.UUID
+	err := tx.QueryRow(ctx,
+		`SELECT referred_by FROM clients WHERE id = $1 AND referred_by IS NOT NULL`,
+		clientID,
+	).Scan(&referrerID)
+	if err != nil || referrerID == uuid.Nil {
+		return
+	}
+
+	const bonusAmount = 300.0
+
+	// Начисляем пригласившему и обновляем referral_earned_total
+	_, err = tx.Exec(ctx,
+		`UPDATE clients 
+		 SET balance = balance + $1, 
+		     referral_earned_total = referral_earned_total + $1, 
+		     updated_at = NOW() 
+		 WHERE id = $2`,
+		bonusAmount, referrerID,
+	)
+	if err != nil {
+		log.Printf("Referral to referrer failed: %v", err)
+		return
+	}
+	r.createTransactionInTx(ctx, tx, referrerID, "accrual", bonusAmount, "Реферальный бонус за друга", visitID)
+
+	// Начисляем новому клиенту
+	_, err = tx.Exec(ctx,
+		`UPDATE clients SET balance = balance + $1, updated_at = NOW() WHERE id = $2`,
+		bonusAmount, clientID,
+	)
+	if err != nil {
+		log.Printf("Referral to new client failed: %v", err)
+		return
+	}
+	r.createTransactionInTx(ctx, tx, clientID, "accrual", bonusAmount, "Реферальный бонус за первый визит", visitID)
+
+	log.Printf("Referral bonus 300₽ each: new=%s ← referrer=%s", clientID, referrerID)
+}
+
+// Новый метод для получения реферальной статистики
+func (r *Repository) GetReferralStats(ctx context.Context, clientID uuid.UUID) (*models.ReferralStats, error) {
+	var stats models.ReferralStats
+
+	// Кол-во приглашённых
+	err := database.DB.QueryRow(ctx,
+		`SELECT COUNT(*) FROM clients WHERE referred_by = $1`,
+		clientID,
+	).Scan(&stats.Count)
+	if err != nil {
+		log.Printf("GetReferralStats count error: %v", err)
+		return nil, err
+	}
+
+	// Сумма бонусов, заработанная через рефералов
+	err = database.DB.QueryRow(ctx,
+		`SELECT COALESCE(referral_earned_total, 0) FROM clients WHERE id = $1`,
+		clientID,
+	).Scan(&stats.Earned)
+	if err != nil {
+		log.Printf("GetReferralStats earned error: %v", err)
+		return nil, err
+	}
+
+	return &stats, nil
 }

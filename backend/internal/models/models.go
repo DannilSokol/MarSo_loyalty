@@ -1,4 +1,4 @@
-// internal/models/models.go (полный файл с обновлённой структурой AdminStats)
+// Файл: internal/models/models.go — ПОЛНЫЙ ФАЙЛ (убрана вся логика барберов/мастеров)
 
 package models
 
@@ -26,26 +26,14 @@ type Client struct {
 	ReferredBy      uuid.UUID `json:"referred_by,omitempty"`
 }
 
-// Visit — запись о посещении
+// Visit — запись о посещении (без BarberID)
 type Visit struct {
 	ID          uuid.UUID `json:"id"`
 	ClientID    uuid.UUID `json:"client_id"`
-	BarberID    int       `json:"barber_id,omitempty"`
 	Amount      float64   `json:"amount"`
 	BonusAmount float64   `json:"bonus_amount"`
 	Note        string    `json:"note,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
-}
-
-// Barber — мастер
-type Barber struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	Nickname  string    `json:"nickname,omitempty"`
-	PhotoURL  string    `json:"photo_url,omitempty"`
-	IsActive  bool      `json:"is_active"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Admin — администратор
@@ -85,8 +73,7 @@ type Transaction struct {
 	Amount      float64   `json:"amount"`
 	Description string    `json:"description,omitempty"`
 	VisitID     uuid.UUID `json:"visit_id,omitempty"`
-	//ExpiresAt   *time.Time `json:"expires_at,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // QRToken — токен для QR-кода
@@ -117,6 +104,7 @@ type VisitCreateWithBonus struct {
 }
 
 // AdminStats — расширенная статистика для админ-дашборда
+// Убрано поле TopBarbers полностью
 type AdminStats struct {
 	Revenue struct {
 		Today       float64 `json:"today"`
@@ -128,11 +116,10 @@ type AdminStats struct {
 	} `json:"revenue"`
 
 	Visits struct {
-		Today           int     `json:"today"`
-		ThisWeek        int     `json:"this_week"`
-		ThisMonth       int     `json:"this_month"`
-		AverageCheck    float64 `json:"average_check"`
-		AvgIntervalDays float64 `json:"avg_interval_days,omitempty"` // можно добавить позже
+		Today        int     `json:"today"`
+		ThisWeek     int     `json:"this_week"`
+		ThisMonth    int     `json:"this_month"`
+		AverageCheck float64 `json:"average_check"`
 	} `json:"visits"`
 
 	Clients struct {
@@ -144,12 +131,10 @@ type AdminStats struct {
 	} `json:"clients"`
 
 	Loyalty struct {
-		TotalBalance        float64 `json:"total_balance"`
-		AccruedThisMonth    float64 `json:"accrued_this_month"`
-		RedeemedThisMonth   float64 `json:"redeemed_this_month"`
-		ExpiredThisMonth    float64 `json:"expired_this_month"`
-		AvgBonusesPerClient float64 `json:"avg_bonuses_per_client,omitempty"`
-		UsageRate           float64 `json:"usage_rate,omitempty"` // % использованных от начисленных
+		TotalBalance      float64 `json:"total_balance"`
+		AccruedThisMonth  float64 `json:"accrued_this_month"`
+		RedeemedThisMonth float64 `json:"redeemed_this_month"`
+		ExpiredThisMonth  float64 `json:"expired_this_month"`
 	} `json:"loyalty"`
 
 	BreakdownByLevel struct {
@@ -175,12 +160,8 @@ type AdminStats struct {
 		Visits     int     `json:"visits"`
 		LastVisit  string  `json:"last_visit"` // YYYY-MM-DD
 	} `json:"top_clients"`
-
-	TopBarbers []struct {
-		Name      string  `json:"name"`
-		Revenue   float64 `json:"revenue"`
-		Visits    int     `json:"visits"`
-		AvgCheck  float64 `json:"avg_check"`
-		TopClient string  `json:"top_client,omitempty"` // телефон самого платящего
-	} `json:"top_barbers"`
+}
+type ReferralStats struct {
+	Count  int     `json:"count"`  // Кол-во приглашённых
+	Earned float64 `json:"earned"` // Сумма заработанных бонусов через рефералов
 }

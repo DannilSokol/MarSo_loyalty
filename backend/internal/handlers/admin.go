@@ -1,3 +1,5 @@
+// Файл: internal/handlers/admin.go — ПОЛНЫЙ ФАЙЛ (без GetAllBarbers и TopBarbers)
+
 package handlers
 
 import (
@@ -7,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.mod/internal/database"
-
 	"go.mod/internal/repository"
 	"go.mod/internal/utils"
 )
@@ -107,16 +108,6 @@ func (h *AdminHandler) GetClientById(c *gin.Context) {
 	})
 }
 
-// GetAllBarbers — список активных мастеров
-func (h *AdminHandler) GetAllBarbers(c *gin.Context) {
-	barbers, err := repository.Repo.GetAllBarbers(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch barbers: " + err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, barbers)
-}
-
 // GetStats — расширенная статистика для админ-дашборда
 func (h *AdminHandler) GetStats(c *gin.Context) {
 	period := c.Query("period")
@@ -126,16 +117,16 @@ func (h *AdminHandler) GetStats(c *gin.Context) {
 	var start, end time.Time
 	var err error
 
-	// Приоритет: если переданы start и end — используем их (custom период)
+	// Приоритет: custom период
 	if startStr != "" && endStr != "" {
 		start, err = time.Parse("2006-01-02", startStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты start (ожидается YYYY-MM-DD)"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты start (YYYY-MM-DD)"})
 			return
 		}
 		end, err = time.Parse("2006-01-02", endStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты end (ожидается YYYY-MM-DD)"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты end (YYYY-MM-DD)"})
 			return
 		}
 		if end.Before(start) {
@@ -143,7 +134,6 @@ func (h *AdminHandler) GetStats(c *gin.Context) {
 			return
 		}
 	} else {
-		// Дефолтные периоды, если передан только period или ничего
 		now := time.Now()
 		switch period {
 		case "today":
@@ -162,13 +152,11 @@ func (h *AdminHandler) GetStats(c *gin.Context) {
 			start = now.AddDate(-1, 0, 0)
 			end = now
 		default:
-			// если period пустой или неизвестный — берём последний месяц
 			start = now.AddDate(0, -1, 0)
 			end = now
 		}
 	}
 
-	// Вызываем репозиторий с параметрами дат
 	stats, err := repository.Repo.GetAdminStats(c.Request.Context(), start, end)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

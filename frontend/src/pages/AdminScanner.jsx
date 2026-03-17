@@ -1,8 +1,7 @@
-// src/pages/AdminScanner.jsx — ПОЛНЫЙ ФАЙЛ
 import React, { useState, useRef, useEffect } from 'react'
 import { adminAPI } from '../services/client'
 import {
-    QrCode, Camera, X, CheckCircle, AlertCircle, Scan, Key, Phone,
+    Camera, X, CheckCircle, Scan, Key, Phone,
     ExternalLink, CreditCard, Loader2, Plus
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -18,8 +17,6 @@ const AdminScanner = () => {
     const [qrToken, setQrToken] = useState('')
     const [showTokenInput, setShowTokenInput] = useState(false)
     const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
-
-    // Форма создания визита (новая часть)
     const [showCreateVisit, setShowCreateVisit] = useState(false)
     const [visitAmount, setVisitAmount] = useState('1500')
     const [useBonus, setUseBonus] = useState(false)
@@ -29,13 +26,11 @@ const AdminScanner = () => {
     const navigate = useNavigate()
     const isProcessingRef = useRef(false)
 
-    // Проверка токена админа при монтировании
     useEffect(() => {
         const adminToken = localStorage.getItem('marso_admin_token')
         if (!adminToken) {
             toast.error('Сессия истекла. Войдите заново')
             navigate('/login')
-            return
         }
     }, [navigate])
 
@@ -45,6 +40,7 @@ const AdminScanner = () => {
         setPhoneNumber('')
         setShowPhoneSearch(false)
         setShowTokenInput(false)
+        setIsScanning(false)
         setLoading(false)
         setShowSuccessOverlay(false)
         setShowCreateVisit(false)
@@ -70,7 +66,6 @@ const AdminScanner = () => {
 
     const handleScanResult = (result) => {
         if (isProcessingRef.current || !result?.text || scanResult?.client) return
-
         isProcessingRef.current = true
         processQRData(result.text)
     }
@@ -79,10 +74,8 @@ const AdminScanner = () => {
         try {
             setLoading(true)
             const parsed = parseQRData(text)
-            setQrToken(text)
 
             let clientData
-
             if (parsed.client_id) {
                 const res = await adminAPI.getClientById(parsed.client_id)
                 clientData = res.data.client
@@ -96,33 +89,28 @@ const AdminScanner = () => {
             if (clientData) {
                 setScanResult({ valid: true, client: clientData })
                 toast.success('Клиент найден')
-
-                // Показываем красивый оверлей успеха
                 setShowSuccessOverlay(true)
-
-                // Через 1.5 секунды автоматически открываем форму визита
                 setTimeout(() => {
                     setShowSuccessOverlay(false)
                     setShowCreateVisit(true)
-                }, 1500)
+                }, 1200)
             } else {
                 toast.error('Клиент не найден')
             }
         } catch (err) {
-            toast.error('Ошибка обработки QR-кода')
-            console.error('processQRData error:', err)
+            toast.error('Ошибка обработки QR')
+            console.error(err)
         } finally {
             setLoading(false)
             isProcessingRef.current = false
         }
     }
 
-    // Создание визита из формы
     const handleCreateVisit = async () => {
         const amount = parseFloat(visitAmount)
         const bonus = useBonus ? parseFloat(bonusAmount) : 0
 
-        if (isNaN(amount) || amount <= 0) return toast.error('Введите сумму > 0')
+        if (isNaN(amount) || amount <= 0) return toast.error('Сумма > 0')
         if (useBonus && bonus > (scanResult?.client?.balance || 0)) {
             return toast.error('Недостаточно бонусов')
         }
@@ -134,71 +122,16 @@ const AdminScanner = () => {
                 amount,
                 use_bonus: useBonus,
                 bonus_amount: bonus,
-                note: note.trim() || 'Создано через сканер'
+                note: note.trim() || 'Через сканер'
             }
 
             await adminAPI.createVisitWithBonus(payload)
-            toast.success('Посещение успешно создано!')
-
-            // Закрываем форму и сбрасываем состояние
+            toast.success('Визит создан')
             setShowCreateVisit(false)
             resetAll()
-
-            // Редирект в профиль клиента
             navigate(`/admin/client/${scanResult.client.id}`)
         } catch (err) {
-            toast.error(err.response?.data?.error || 'Ошибка создания визита')
-            console.error('Create visit error:', err)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const fetchClientById = async (clientId) => {
-        try {
-            setLoading(true)
-            const response = await adminAPI.getClientById(clientId)
-            const client = response.data.client
-
-            if (client) {
-                setScanResult({ valid: true, client })
-                toast.success('Клиент найден!')
-                setShowSuccessOverlay(true)
-                setTimeout(() => {
-                    setShowSuccessOverlay(false)
-                    setShowCreateVisit(true)
-                }, 1500)
-            } else {
-                toast.error('Клиент не найден по ID')
-            }
-        } catch (err) {
-            console.error('fetchClientById error:', err)
-            toast.error('Ошибка загрузки клиента')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const processViaAPI = async (token) => {
-        try {
-            setLoading(true)
-            const response = await adminAPI.scanQR({ token })
-
-            if (response.data?.valid && response.data?.client) {
-                const client = response.data.client
-                setScanResult(response.data)
-                toast.success('Клиент найден по токену!')
-                setShowSuccessOverlay(true)
-                setTimeout(() => {
-                    setShowSuccessOverlay(false)
-                    setShowCreateVisit(true)
-                }, 1500)
-            } else {
-                toast.error('Токен недействителен')
-            }
-        } catch (err) {
-            console.error('processViaAPI error:', err)
-            toast.error('Ошибка сканирования токена')
+            toast.error(err.response?.data?.error || 'Ошибка')
         } finally {
             setLoading(false)
         }
@@ -206,33 +139,32 @@ const AdminScanner = () => {
 
     const searchByPhone = async (e) => {
         e.preventDefault()
-        let formatted = phoneNumber.replace(/\D/g, '')
-        if (formatted.startsWith('8')) formatted = '7' + formatted.slice(1)
-        if (formatted.length !== 11 || !formatted.startsWith('7')) {
-            return toast.error('Номер должен быть +7XXXXXXXXXX')
+        let phone = phoneNumber.replace(/\D/g, '')
+        if (phone.startsWith('8')) phone = '7' + phone.slice(1)
+        if (phone.length !== 11 || !phone.startsWith('7')) {
+            return toast.error('Номер: +7XXXXXXXXXX')
         }
 
         try {
             setLoading(true)
-            const response = await adminAPI.getAllClients()
-            const client = response.data?.find(
-                c => c.phone === `+${formatted}` || c.phone === formatted
+            const res = await adminAPI.getAllClients()
+            const client = res.data?.find(c =>
+                c.phone === `+${phone}` || c.phone === phone
             )
 
             if (client) {
                 setScanResult({ valid: true, client })
-                toast.success('Клиент найден по номеру!')
+                toast.success('Найден по номеру')
                 setShowSuccessOverlay(true)
                 setTimeout(() => {
                     setShowSuccessOverlay(false)
                     setShowCreateVisit(true)
-                }, 1500)
+                }, 1200)
             } else {
-                toast.error('Клиент не найден')
+                toast.error('Не найден')
             }
         } catch (err) {
-            console.error('searchByPhone error:', err)
-            toast.error('Ошибка поиска по номеру')
+            toast.error('Ошибка поиска')
         } finally {
             setLoading(false)
         }
@@ -244,399 +176,333 @@ const AdminScanner = () => {
         processQRData(qrToken.trim())
     }
 
-    const getLevelBadge = (level) => {
-        const styles = {
-            gold: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-            silver: 'bg-gray-100 text-gray-800 border-gray-300',
-            bronze: 'bg-amber-100 text-amber-800 border-amber-300'
+    const formatPhoneInput = (value) => {
+        const digits = value.replace(/\D/g, '')
+        if (!digits) return ''
+        let formatted = '+7'
+        if (digits.length > 1) {
+            formatted += ' (' + digits.slice(1,4)
+            if (digits.length > 4) formatted += ') ' + digits.slice(4,7)
+            if (digits.length > 7) formatted += '-' + digits.slice(7,9)
+            if (digits.length > 9) formatted += '-' + digits.slice(9,11)
         }
+        return formatted
+    }
+
+    const getLevelBadge = (level) => {
+        const map = {
+            gold: { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' },
+            silver: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300' },
+            bronze: { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' }
+        }
+        const style = map[level?.toLowerCase()] || map.bronze
         return (
-            <span className={`inline-block px-5 py-2 rounded-full text-base font-medium border ${styles[level] || styles.bronze}`}>
-                {level ? level.charAt(0).toUpperCase() + level.slice(1) : 'Bronze'}
-            </span>
+            <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-medium border ${style.bg} ${style.text} ${style.border}`}>
+        {level ? level.charAt(0).toUpperCase() + level.slice(1) : 'Bronze'}
+      </span>
         )
     }
 
-    const formatTime = (seconds) => {
-        const m = Math.floor(seconds / 60)
-        const s = seconds % 60
-        return `${m}:${s.toString().padStart(2, '0')}`
-    }
+    const activeMode = isScanning || showPhoneSearch || showTokenInput || showCreateVisit
 
     return (
-        <div className="max-w-7xl mx-auto px-6 py-10 bg-gradient-to-b from-white to-marso-50/30 min-h-screen relative">
-            {/* Успешный оверлей после сканирования */}
+        <div className="min-h-screen bg-gray-50 text-gray-900">
+            {/* Оверлей успеха */}
             {showSuccessOverlay && scanResult?.client && (
-                <div className="fixed inset-0 bg-gradient-to-br from-marso to-marso-dark/95 flex items-center justify-center z-50 backdrop-blur-sm animate-fade-in">
-                    <div className="text-center text-white px-6 max-w-lg">
-                        <div className="relative inline-block mb-10">
-                            <CheckCircle className="h-32 w-32 mx-auto text-green-400 animate-pulse" />
-                            <div className="absolute inset-0 rounded-full bg-green-400/20 animate-ping-slow" />
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl p-10 text-center max-w-md w-full mx-4 shadow-2xl">
+                        <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-6" />
+                        <h2 className="text-3xl font-bold mb-3">Клиент найден</h2>
+                        <div className="text-2xl font-mono mb-6">{scanResult.client.phone}</div>
+                        <div className="text-5xl font-bold text-[#501822] mb-2">
+                            {scanResult.client.balance ?? 0} ₽
                         </div>
-
-                        <h2 className="text-5xl md:text-6xl font-serif font-bold mb-6 tracking-tight">
-                            Клиент найден
-                        </h2>
-
-                        <div className="text-3xl md:text-4xl font-medium mb-10 font-mono">
-                            {scanResult.client.phone}
-                        </div>
-
-                        <div className="inline-block bg-white/10 backdrop-blur-md px-10 md:px-16 py-6 md:py-8 rounded-2xl border border-white/20 shadow-2xl">
-                            <div className="text-6xl md:text-7xl font-black mb-2">
-                                {scanResult.client.balance ?? 0} ₽
-                            </div>
-                            <div className="text-xl md:text-2xl opacity-90 font-medium">
-                                бонусов на счету
-                            </div>
-                        </div>
-
-                        <p className="mt-16 text-xl md:text-2xl opacity-80 flex items-center justify-center gap-3">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                            Открываем форму визита...
+                        <p className="text-gray-500">бонусов</p>
+                        <p className="mt-8 text-gray-600 flex items-center justify-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            Открываем форму...
                         </p>
                     </div>
                 </div>
             )}
 
-            <div className="mb-16 text-center">
-                <h1 className="text-6xl md:text-7xl font-serif font-extrabold text-marso mb-4 tracking-tight">
-                    MarSo Scanner
-                </h1>
-                <p className="text-2xl md:text-3xl text-marso-text-muted max-w-3xl mx-auto leading-relaxed">
-                    Отсканируйте QR-код клиента или найдите по номеру для мгновенного доступа к профилю
+            <div className="max-w-6xl mx-auto px-5 py-10">
+                <h1 className="text-4xl md:text-5xl font-bold text-[#501822] text-center mb-2">MarSo Scanner</h1>
+                <p className="text-center text-gray-600 mb-10 md:mb-12 max-w-2xl mx-auto">
+                    Отсканируйте QR-код клиента или найдите по номеру телефона
                 </p>
-            </div>
 
-            {loading && !showSuccessOverlay && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-md">
-                    <div className="bg-white rounded-3xl p-16 shadow-premium text-center max-w-lg w-full border border-marso-border/30">
-                        <div className="animate-spin rounded-full h-24 w-24 border-b-6 border-marso mx-auto mb-10"></div>
-                        <p className="text-3xl font-medium text-marso mb-4">Поиск клиента...</p>
-                        <p className="text-xl text-marso-text-muted">Пожалуйста, подождите</p>
+                {loading && !showSuccessOverlay && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                        <div className="bg-white p-10 rounded-2xl shadow-2xl text-center">
+                            <Loader2 className="h-12 w-12 animate-spin text-[#501822] mx-auto mb-4" />
+                            <p className="text-xl font-medium">Поиск...</p>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            <div className="grid lg:grid-cols-2 gap-16">
-                {/* Левая колонка — инструменты */}
-                <div className="space-y-12">
-                    <div className="card p-12 shadow-premium border-marso-border/40 bg-white/90 backdrop-blur-sm">
-                        <div className="flex items-center justify-between mb-12">
-                            <h2 className="text-4xl font-serif font-bold text-marso">
-                                {isScanning
-                                    ? 'Сканирование...'
-                                    : showPhoneSearch
-                                        ? 'Поиск по номеру'
-                                        : showTokenInput
-                                            ? 'Ручной ввод'
-                                            : showCreateVisit
-                                                ? 'Создание визита'
-                                                : 'Выберите способ'}
+                <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+                    {/* Левая панель — управление */}
+                    <div className="bg-white rounded-2xl shadow border border-gray-200 p-6 md:p-8">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-2xl md:text-3xl font-bold text-[#501822]">
+                                {showCreateVisit ? 'Новый визит' :
+                                    showPhoneSearch ? 'Поиск по номеру' :
+                                        showTokenInput ? 'Ручной ввод токена' :
+                                            isScanning ? 'Сканирование QR' : 'Выберите действие'}
                             </h2>
 
-                            <div className="flex gap-6">
-                                {!isScanning && !showPhoneSearch && !showTokenInput && !showCreateVisit ? (
-                                    <>
-                                        <button
-                                            onClick={startScanner}
-                                            className="btn-primary flex items-center gap-4 px-10 py-6 text-2xl shadow-lg hover:shadow-xl transition-all"
-                                        >
-                                            <Camera className="h-8 w-8" /> QR-код
-                                        </button>
-                                        <button
-                                            onClick={() => setShowPhoneSearch(true)}
-                                            className="btn-outline flex items-center gap-4 px-10 py-6 text-2xl"
-                                        >
-                                            <Phone className="h-8 w-8" /> Телефон
-                                        </button>
-                                        <button
-                                            onClick={() => setShowTokenInput(true)}
-                                            className="btn-outline flex items-center gap-4 px-10 py-6 text-2xl"
-                                        >
-                                            <Key className="h-8 w-8" /> Токен
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        onClick={resetAll}
-                                        className="btn-outline flex items-center gap-4 px-10 py-6 text-2xl"
-                                    >
-                                        <X className="h-8 w-8" /> Отмена
-                                    </button>
-                                )}
-                            </div>
+                            {activeMode && (
+                                <button
+                                    onClick={resetAll}
+                                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition flex items-center gap-2 font-medium"
+                                >
+                                    <X size={20} /> Отмена
+                                </button>
+                            )}
                         </div>
 
-                        {/* Формы и сканер */}
-                        {showCreateVisit && scanResult?.client ? (
-                            // Форма создания визита (встроена вместо сканера)
-                            <div className="space-y-8 animate-fade-in">
-                                <div className="p-6 bg-blue-50 rounded-2xl text-center">
-                                    <h3 className="text-2xl font-bold text-marso mb-2">
-                                        Создаём визит для {scanResult.client.phone}
-                                    </h3>
-                                    <p className="text-marso-text-muted">
-                                        Баланс бонусов: {scanResult.client.balance.toLocaleString('ru-RU')} ₽
-                                    </p>
+                        {!activeMode ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <button
+                                    onClick={startScanner}
+                                    className="p-8 border-2 border-gray-200 rounded-2xl hover:border-[#501822]/30 hover:bg-[#501822]/5 transition text-center group"
+                                >
+                                    <Camera className="h-12 w-12 text-[#501822] mx-auto mb-4 group-hover:scale-110 transition" />
+                                    <div className="font-semibold text-lg">QR-код</div>
+                                </button>
+
+                                <button
+                                    onClick={() => setShowPhoneSearch(true)}
+                                    className="p-8 border-2 border-gray-200 rounded-2xl hover:border-[#501822]/30 hover:bg-[#501822]/5 transition text-center group"
+                                >
+                                    <Phone className="h-12 w-12 text-[#501822] mx-auto mb-4 group-hover:scale-110 transition" />
+                                    <div className="font-semibold text-lg">Номер телефона</div>
+                                </button>
+
+                                <button
+                                    onClick={() => setShowTokenInput(true)}
+                                    className="p-8 border-2 border-gray-200 rounded-2xl hover:border-[#501822]/30 hover:bg-[#501822]/5 transition text-center group"
+                                >
+                                    <Key className="h-12 w-12 text-[#501822] mx-auto mb-4 group-hover:scale-110 transition" />
+                                    <div className="font-semibold text-lg">Токен</div>
+                                </button>
+                            </div>
+                        ) : showCreateVisit && scanResult?.client ? (
+                            // ... (форма создания визита остаётся почти без изменений, только цвета подогнаны)
+                            <div className="space-y-6">
+                                <div className="p-5 bg-gray-50 rounded-xl text-center border border-gray-200">
+                                    <div className="font-medium text-lg mb-1">{scanResult.client.phone}</div>
+                                    <div className="text-3xl font-bold text-[#501822]">
+                                        {scanResult.client.balance.toLocaleString('ru-RU')} ₽
+                                    </div>
+                                    <div className="text-sm text-gray-500">бонусов</div>
                                 </div>
 
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2 text-marso-text">Сумма чека (₽)</label>
-                                        <input
-                                            type="number"
-                                            value={visitAmount}
-                                            onChange={e => setVisitAmount(e.target.value)}
-                                            className="w-full px-6 py-4 bg-white border border-marso-border rounded-2xl focus:ring-2 focus:ring-marso focus:border-transparent text-xl"
-                                            min="500"
-                                            step="100"
-                                            placeholder="1500"
-                                        />
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Сумма чека (₽)</label>
+                                    <input
+                                        type="number"
+                                        value={visitAmount}
+                                        onChange={e => setVisitAmount(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-[#501822] focus:ring-1 focus:ring-[#501822]/30 text-lg"
+                                        min="500"
+                                        step="100"
+                                    />
+                                </div>
 
-                                    {scanResult.client.balance > 0 && (
-                                        <>
-                                            <label className="flex items-center gap-3 text-lg">
+                                {scanResult.client.balance > 0 && (
+                                    <>
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={useBonus}
+                                                onChange={e => setUseBonus(e.target.checked)}
+                                                className="h-5 w-5 text-[#501822] border-gray-300 rounded"
+                                            />
+                                            <span className="font-medium">Списать бонусы</span>
+                                        </label>
+
+                                        {useBonus && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Сумма списания (₽)</label>
                                                 <input
-                                                    type="checkbox"
-                                                    checked={useBonus}
-                                                    onChange={e => setUseBonus(e.target.checked)}
-                                                    className="w-6 h-6 text-marso rounded border-marso-border"
+                                                    type="number"
+                                                    value={bonusAmount}
+                                                    onChange={e => setBonusAmount(e.target.value)}
+                                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-[#501822] focus:ring-1 focus:ring-[#501822]/30 text-lg"
+                                                    max={scanResult.client.balance}
+                                                    step="50"
                                                 />
-                                                Списать бонусы
-                                            </label>
+                                                <p className="text-sm text-gray-500 mt-1">
+                                                    Доступно: {scanResult.client.balance.toLocaleString('ru-RU')} ₽
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
 
-                                            {useBonus && (
-                                                <div>
-                                                    <label className="block text-sm font-medium mb-2 text-marso-text">Сумма списания (₽)</label>
-                                                    <input
-                                                        type="number"
-                                                        value={bonusAmount}
-                                                        onChange={e => setBonusAmount(e.target.value)}
-                                                        className="w-full px-6 py-4 bg-white border border-marso-border rounded-2xl focus:ring-2 focus:ring-marso focus:border-transparent text-xl"
-                                                        max={scanResult.client.balance}
-                                                        step="50"
-                                                        placeholder="0"
-                                                    />
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Примечание</label>
+                                    <textarea
+                                        value={note}
+                                        onChange={e => setNote(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-[#501822] focus:ring-1 focus:ring-[#501822]/30 resize-none h-24"
+                                        placeholder="Дополнительная информация..."
+                                    />
+                                </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2 text-marso-text">Примечание</label>
-                                        <textarea
-                                            value={note}
-                                            onChange={e => setNote(e.target.value)}
-                                            className="w-full px-6 py-4 bg-white border border-marso-border rounded-2xl focus:ring-2 focus:ring-marso focus:border-transparent resize-none"
-                                            rows="3"
-                                            placeholder="Дополнительная информация о визите..."
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-6 mt-10">
-                                        <button
-                                            onClick={handleCreateVisit}
-                                            disabled={loading}
-                                            className="flex-1 bg-marso text-white py-5 rounded-2xl hover:bg-marso-dark text-xl font-medium shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                                        >
-                                            {loading ? (
-                                                <>
-                                                    <Loader2 className="h-6 w-6 animate-spin" />
-                                                    Создаём...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Plus className="h-6 w-6" />
-                                                    Создать визит
-                                                </>
-                                            )}
-                                        </button>
-
-                                        <button
-                                            onClick={() => setShowCreateVisit(false)}
-                                            className="flex-1 border-2 border-marso text-marso py-5 rounded-2xl hover:bg-marso/5 text-xl font-medium transition-all"
-                                        >
-                                            Отмена
-                                        </button>
-                                    </div>
+                                <div className="flex gap-4 mt-8">
+                                    <button
+                                        onClick={handleCreateVisit}
+                                        disabled={loading}
+                                        className="flex-1 bg-[#501822] text-white py-4 rounded-xl font-medium hover:bg-[#3e1420] transition disabled:opacity-60 flex items-center justify-center gap-2"
+                                    >
+                                        {loading ? <Loader2 className="animate-spin" /> : <Plus size={20} />}
+                                        {loading ? 'Создаём...' : 'Создать визит'}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowCreateVisit(false)}
+                                        className="flex-1 border border-gray-300 py-4 rounded-xl font-medium hover:bg-gray-50 transition"
+                                    >
+                                        Отмена
+                                    </button>
                                 </div>
                             </div>
-                        ) : showTokenInput ? (
-                            <form onSubmit={handleManualToken} className="space-y-10">
-                                <textarea
-                                    value={qrToken}
-                                    onChange={e => setQrToken(e.target.value)}
-                                    placeholder="Вставьте токен или содержимое QR-кода"
-                                    className="w-full px-8 py-6 bg-marso-50 border border-marso-border rounded-3xl focus:ring-4 focus:ring-marso/30 focus:border-marso h-48 resize-none font-mono text-lg shadow-inner"
-                                    disabled={loading}
-                                />
-                                <div className="flex gap-8">
+                        ) : showPhoneSearch ? (
+                            <form onSubmit={searchByPhone} className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Номер телефона</label>
+                                    <input
+                                        type="tel"
+                                        value={formatPhoneInput(phoneNumber)}
+                                        onChange={e => {
+                                            const digits = e.target.value.replace(/\D/g, '')
+                                            setPhoneNumber(digits)
+                                        }}
+                                        placeholder="+7 (___) ___-__-__"
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-[#501822] focus:ring-1 focus:ring-[#501822]/30 text-lg font-mono"
+                                        maxLength={18}
+                                    />
+                                </div>
+
+                                <div className="flex gap-4">
                                     <button
                                         type="submit"
-                                        disabled={loading || !qrToken.trim()}
-                                        className="flex-1 btn-primary py-6 text-2xl shadow-lg hover:shadow-xl transition-all"
+                                        disabled={loading || phoneNumber.length < 11}
+                                        className="flex-1 bg-[#501822] text-white py-4 rounded-xl font-medium hover:bg-[#3e1420] transition disabled:opacity-60"
                                     >
                                         {loading ? 'Поиск...' : 'Найти клиента'}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={resetAll}
-                                        className="btn-outline py-6 px-12 text-2xl"
+                                        className="flex-1 border border-gray-300 py-4 rounded-xl font-medium hover:bg-gray-50 transition"
                                     >
                                         Отмена
                                     </button>
                                 </div>
                             </form>
-                        ) : showPhoneSearch ? (
-                            <form onSubmit={searchByPhone} className="space-y-10">
-                                <div className="relative">
-                                    <input
-                                        type="tel"
-                                        value={phoneNumber}
-                                        onChange={e => setPhoneNumber(e.target.value)}
-                                        placeholder="+7 (___) ___-__-__"
-                                        className="w-full px-8 py-6 pl-16 bg-marso-50 border border-marso-border rounded-3xl focus:ring-4 focus:ring-marso/30 focus:border-marso text-2xl shadow-inner"
-                                        disabled={loading}
-                                    />
-                                    <span className="absolute left-8 top-1/2 -translate-y-1/2 text-marso font-medium text-2xl">+7</span>
-                                </div>
-                                <div className="flex gap-8">
+                        ) : showTokenInput ? (
+                            <form onSubmit={handleManualToken} className="space-y-6">
+                <textarea
+                    value={qrToken}
+                    onChange={e => setQrToken(e.target.value)}
+                    placeholder="Вставьте содержимое QR-кода или токен"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-[#501822] focus:ring-1 focus:ring-[#501822]/30 h-32 font-mono resize-none"
+                />
+                                <div className="flex gap-4">
                                     <button
                                         type="submit"
-                                        disabled={loading || !phoneNumber.trim()}
-                                        className="flex-1 btn-primary py-6 text-2xl shadow-lg hover:shadow-xl transition-all"
+                                        disabled={loading || !qrToken.trim()}
+                                        className="flex-1 bg-[#501822] text-white py-4 rounded-xl font-medium hover:bg-[#3e1420] transition disabled:opacity-60"
                                     >
-                                        {loading ? 'Поиск...' : 'Найти клиента'}
+                                        Найти
                                     </button>
                                     <button
                                         type="button"
                                         onClick={resetAll}
-                                        className="btn-outline py-6 px-12 text-2xl"
+                                        className="flex-1 border border-gray-300 py-4 rounded-xl font-medium hover:bg-gray-50 transition"
                                     >
                                         Отмена
                                     </button>
                                 </div>
                             </form>
                         ) : isScanning ? (
-                            <div className="relative bg-black rounded-3xl overflow-hidden aspect-square max-w-[700px] mx-auto shadow-2xl border-8 border-marso">
-                                {!scanResult && (
-                                    <QrReader
-                                        onResult={handleScanResult}
-                                        constraints={{ facingMode: 'environment' }}
-                                        scanDelay={300}
-                                        className="w-full h-full"
-                                    />
-                                )}
+                            <div className="relative bg-black rounded-2xl overflow-hidden aspect-square border-4 border-[#501822]/30 shadow-xl max-w-[500px] mx-auto">
+                                <QrReader
+                                    onResult={handleScanResult}
+                                    constraints={{ facingMode: 'environment' }}
+                                    scanDelay={300}
+                                    className="w-full h-full"
+                                />
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="w-96 h-96 border-6 border-white/70 rounded-3xl relative">
-                                        <div className="absolute -top-6 -left-6 w-16 h-16 border-t-8 border-l-8 border-marso rounded-tl-3xl" />
-                                        <div className="absolute -top-6 -right-6 w-16 h-16 border-t-8 border-r-8 border-marso rounded-tr-3xl" />
-                                        <div className="absolute -bottom-6 -left-6 w-16 h-16 border-b-8 border-l-8 border-marso rounded-bl-3xl" />
-                                        <div className="absolute -bottom-6 -right-6 w-16 h-16 border-b-8 border-r-8 border-marso rounded-br-3xl" />
+                                    <div className="w-72 h-72 border-4 border-white/60 rounded-2xl relative">
+                                        <div className="absolute inset-4 border-2 border-[#C9A96E]/70 rounded-xl" />
                                     </div>
                                 </div>
+                                <div className="absolute bottom-6 left-0 right-0 text-center text-white/80 text-base pointer-events-none">
+                                    Наведите камеру на QR-код клиента
+                                </div>
                             </div>
+                        ) : null}
+                    </div>
+
+                    {/* Правая панель — результат */}
+                    <div className="bg-white rounded-2xl shadow border border-gray-200 p-6 md:p-8 min-h-[500px] flex flex-col">
+                        {scanResult?.client && !showSuccessOverlay && !showCreateVisit ? (
+                            <>
+                                <div className="text-center mb-8">
+                                    <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+                                    <h2 className="text-3xl font-bold text-[#501822]">Клиент найден</h2>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                    <div className="p-5 bg-gray-50 rounded-xl">
+                                        <div className="text-sm text-gray-500 mb-1">Телефон</div>
+                                        <div className="text-2xl font-mono">{scanResult.client.phone}</div>
+                                    </div>
+                                    <div className="p-5 bg-gray-50 rounded-xl">
+                                        <div className="text-sm text-gray-500 mb-1">Баланс бонусов</div>
+                                        <div className="text-4xl font-bold text-[#501822]">
+                                            {scanResult.client.balance ?? 0} ₽
+                                        </div>
+                                    </div>
+                                    <div className="p-5 bg-gray-50 rounded-xl">
+                                        <div className="text-sm text-gray-500 mb-1">Уровень</div>
+                                        {getLevelBadge(scanResult.client.level)}
+                                    </div>
+                                    <div className="p-5 bg-gray-50 rounded-xl">
+                                        <div className="text-sm text-gray-500 mb-1">Всего потрачено</div>
+                                        <div className="text-2xl font-medium">
+                                            {scanResult.client.total_spent ?? 0} ₽
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-auto flex flex-col sm:flex-row gap-4">
+                                    <button
+                                        onClick={() => navigate(`/admin/client/${scanResult.client.id}`)}
+                                        className="flex-1 border-2 border-[#501822] text-[#501822] py-4 rounded-xl font-medium hover:bg-[#501822]/10 transition flex items-center justify-center gap-2"
+                                    >
+                                        <ExternalLink size={20} /> Полный профиль
+                                    </button>
+                                    <button
+                                        onClick={() => setShowCreateVisit(true)}
+                                        className="flex-1 bg-[#501822] text-white py-4 rounded-xl font-medium hover:bg-[#3e1420] transition flex items-center justify-center gap-2"
+                                    >
+                                        <CreditCard size={20} /> Создать визит
+                                    </button>
+                                </div>
+                            </>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 py-20">
-                                <button
-                                    onClick={startScanner}
-                                    className="card hover:shadow-premium transition-all group text-center p-12 border-marso-border/40"
-                                >
-                                    <div className="p-10 bg-marso text-white rounded-3xl mb-8 inline-block group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                                        <Camera className="h-20 w-20" />
-                                    </div>
-                                    <h3 className="font-bold text-3xl text-marso">Сканировать QR</h3>
-                                </button>
-
-                                <button
-                                    onClick={() => setShowPhoneSearch(true)}
-                                    className="card hover:shadow-premium transition-all group text-center p-12 border-marso-border/40"
-                                >
-                                    <div className="p-10 bg-marso text-white rounded-3xl mb-8 inline-block group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                                        <Phone className="h-20 w-20" />
-                                    </div>
-                                    <h3 className="font-bold text-3xl text-marso">По номеру</h3>
-                                </button>
-
-                                <button
-                                    onClick={() => setShowTokenInput(true)}
-                                    className="card hover:shadow-premium transition-all group text-center p-12 border-marso-border/40"
-                                >
-                                    <div className="p-10 bg-marso text-white rounded-3xl mb-8 inline-block group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                                        <Key className="h-20 w-20" />
-                                    </div>
-                                    <h3 className="font-bold text-3xl text-marso">Ввести токен</h3>
-                                </button>
+                            <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-400">
+                                <Scan className="h-20 w-20 mb-6 opacity-40" />
+                                <h3 className="text-2xl font-bold mb-3">Ожидание сканирования</h3>
+                                <p className="max-w-md">Выберите способ слева</p>
                             </div>
                         )}
                     </div>
-                </div>
-
-                {/* Правая колонка — результат */}
-                <div className="space-y-12">
-                    {scanResult?.client && !showSuccessOverlay && !showCreateVisit ? (
-                        <div className="card p-12 shadow-premium border-marso-border/40 bg-gradient-to-br from-marso-50 to-white">
-                            <div className="flex items-center gap-8 mb-12">
-                                <CheckCircle className="h-16 w-16 text-green-600 bg-green-100 rounded-full p-4" />
-                                <h2 className="text-5xl font-serif font-bold text-marso">Клиент найден</h2>
-                            </div>
-
-                            <div className="grid md:grid-cols-2 gap-12 mb-12">
-                                <div>
-                                    <div className="text-xl text-marso-text-muted mb-3">Телефон</div>
-                                    <div className="text-4xl font-medium font-mono text-marso">
-                                        {scanResult.client.phone || '—'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-xl text-marso-text-muted mb-3">Баланс бонусов</div>
-                                    <div className="text-5xl font-bold text-marso">
-                                        {scanResult.client.balance ?? 0} ₽
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-xl text-marso-text-muted mb-3">Уровень</div>
-                                    <div className="text-4xl">
-                                        {getLevelBadge(scanResult.client.level || 'bronze')}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-xl text-marso-text-muted mb-3">Всего потрачено</div>
-                                    <div className="text-4xl font-medium">
-                                        {scanResult.client.total_spent ?? 0} ₽
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-8">
-                                <button
-                                    onClick={() => navigate(`/admin/client/${scanResult.client.id}`)}
-                                    className="flex-1 btn-primary flex items-center justify-center gap-5 py-7 text-3xl shadow-xl hover:shadow-2xl transition-all"
-                                >
-                                    <ExternalLink className="h-10 w-10" />
-                                    Полный профиль
-                                </button>
-
-                                <button
-                                    onClick={() => setShowCreateVisit(true)}
-                                    className="flex-1 btn-outline flex items-center justify-center gap-5 py-7 text-3xl border-marso hover:bg-marso-50 transition-all"
-                                >
-                                    <CreditCard className="h-10 w-10" />
-                                    Создать визит
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="card min-h-[700px] flex flex-col items-center justify-center text-center p-16 bg-white/90 backdrop-blur-md border-marso-border/30 shadow-premium">
-                            <Scan className="h-64 w-64 text-marso opacity-15 mb-16" />
-                            <h3 className="text-5xl font-serif font-bold mb-8 text-marso">Готов к сканированию</h3>
-                            <p className="text-3xl text-marso-text-muted max-w-2xl leading-relaxed">
-                                Выберите способ слева: QR-код, номер телефона или ручной ввод токена клиента
-                            </p>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

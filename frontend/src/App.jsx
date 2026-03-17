@@ -55,7 +55,7 @@ function App() {
                         <Route path="/admin/clients" element={<AdminClients />} />
                         <Route path="/admin/scanner" element={<AdminScanner />} />
                         <Route path="/admin/visits" element={<AdminVisits />} />
-                        <Route path="/admin/client/:id" element={<AdminClientProfile />} />
+                        <Route path="/admin/clients/:id" element={<AdminClientProfile />} />
                     </Route>
 
                     {/* Catch-all — редирект на главную */}
