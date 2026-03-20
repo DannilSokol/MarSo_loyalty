@@ -1,4 +1,3 @@
-// src/pages/Profile.jsx
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { clientAPI } from '../services/client'
@@ -59,7 +58,7 @@ const Profile = () => {
             silver: { next: 'Gold', threshold: 90000, color: 'from-gray-400 to-gray-700', bg: 'from-gray-50 to-gray-200', text: 'text-gray-800' },
             gold: { next: null, threshold: null, color: 'from-yellow-400 to-yellow-600', bg: 'from-yellow-50 to-yellow-100', text: 'text-yellow-800' }
         }
-        return levels[level] || levels.bronze
+        return levels[level?.toLowerCase()] || levels.bronze
     }
 
     if (loading) {
@@ -180,32 +179,85 @@ const Profile = () => {
                         </div>
                     </div>
 
-                    {/* Прогресс и статистика */}
-                    <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                            <Award className="h-6 w-6 text-marso" />
+                    {/* Прогресс и статистика — обновлённый красивый блок */}
+                    <div className="bg-white rounded-2xl border border-gray-200/70 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                            <Award className="h-6 w-6 sm:h-7 sm:w-7 text-marso" />
                             Ваши показатели
                         </h2>
 
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
-                                <TrendingUp className="h-10 w-10 text-blue-600 mx-auto mb-3" />
-                                <div className="text-2xl font-bold text-blue-900">{currentSpent.toLocaleString('ru-RU')} ₽</div>
-                                <div className="text-sm text-blue-700 mt-1">Всего потрачено</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                            {/* Всего потрачено */}
+                            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100/80 rounded-xl p-5 sm:p-6 text-center hover:shadow-lg transition-all duration-300 border border-blue-100">
+                                <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <TrendingUp className="h-9 w-9 sm:h-10 sm:w-10 text-blue-600 mx-auto mb-3" />
+                                <div className="text-2xl sm:text-3xl font-bold text-blue-900">
+                                    {currentSpent.toLocaleString('ru-RU')} ₽
+                                </div>
+                                <div className="text-sm text-blue-700 mt-1 font-medium">Всего потрачено</div>
                             </div>
 
-                            <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
-                                <CreditCard className="h-10 w-10 text-green-600 mx-auto mb-3" />
-                                <div className="text-2xl font-bold text-green-900">{profile.balance?.toLocaleString('ru-RU') || 0} ₽</div>
-                                <div className="text-sm text-green-700 mt-1">Бонусный баланс</div>
+                            {/* Бонусный баланс */}
+                            <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-50 to-emerald-100/80 rounded-xl p-5 sm:p-6 text-center hover:shadow-lg transition-all duration-300 border border-emerald-100">
+                                <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <CreditCard className="h-9 w-9 sm:h-10 sm:w-10 text-emerald-600 mx-auto mb-3" />
+                                <div className="text-2xl sm:text-3xl font-bold text-emerald-900">
+                                    {profile.balance?.toLocaleString('ru-RU') || 0} ₽
+                                </div>
+                                <div className="text-sm text-emerald-700 mt-1 font-medium">Бонусный баланс</div>
                             </div>
 
-                            <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
-                                <Award className="h-10 w-10 text-purple-600 mx-auto mb-3" />
-                                <div className="text-2xl font-bold text-purple-900 capitalize">{profile.level}</div>
-                                <div className="text-sm text-purple-700 mt-1">Текущий уровень</div>
+                            {/* Текущий уровень */}
+                            <div className="group relative overflow-hidden bg-gradient-to-br from-purple-50 to-purple-100/80 rounded-xl p-5 sm:p-6 text-center hover:shadow-lg transition-all duration-300 border border-purple-100">
+                                <div className="absolute inset-0 bg-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                <Award className="h-9 w-9 sm:h-10 sm:w-10 text-purple-600 mx-auto mb-3" />
+                                <div className="text-2xl sm:text-3xl font-bold text-purple-900 capitalize">
+                                    {profile.level}
+                                </div>
+                                <div className="text-sm text-purple-700 mt-1 font-medium">Текущий уровень</div>
+                            </div>
+
+                            {/* До следующего уровня */}
+                            <div className="group relative overflow-hidden bg-gradient-to-br from-amber-50 to-amber-100/80 rounded-xl p-5 sm:p-6 text-center hover:shadow-lg transition-all duration-300 border border-amber-100">
+                                <div className="absolute inset-0 bg-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                {levelInfo.next ? (
+                                    <>
+                                        <div className="text-2xl sm:text-3xl font-bold text-amber-800">
+                                            {remaining.toLocaleString('ru-RU')} ₽
+                                        </div>
+                                        <div className="text-sm text-amber-700 mt-1 font-medium">
+                                            До {levelInfo.next}
+                                        </div>
+                                        <div className="text-xs text-amber-600 mt-0.5">осталось</div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="text-2xl sm:text-3xl font-bold text-yellow-700">
+                                            Максимум
+                                        </div>
+                                        <div className="text-sm text-yellow-700 mt-1 font-medium">
+                                            Вы на высшем уровне
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
+
+                        {/* Прогресс-бар */}
+                        {levelInfo.threshold && (
+                            <div className="mt-8 sm:mt-10">
+                                <div className="flex justify-between items-center text-sm text-gray-600 mb-3">
+                                    <span className="font-medium">Прогресс до {levelInfo.next}</span>
+                                    <span className="font-semibold text-marso">{progress}%</span>
+                                </div>
+                                <div className="h-3.5 sm:h-4 bg-gray-200/70 rounded-full overflow-hidden shadow-inner">
+                                    <div
+                                        className={`h-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 rounded-full transition-all duration-1000 ease-out`}
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -263,14 +315,17 @@ const Profile = () => {
                             Скопировать реферальную ссылку
                         </button>
 
-                        {/* Статистика рефералов под кнопкой */}
                         <div className="mt-6 grid grid-cols-2 gap-4">
                             <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl">
-                                <div className="text-2xl font-bold text-yellow-900">{profile.referral_stats?.count || 0}</div>
+                                <div className="text-2xl font-bold text-yellow-900">
+                                    {profile.referral_stats?.count || 0}
+                                </div>
                                 <div className="text-sm text-yellow-700 mt-1">Приглашено друзей</div>
                             </div>
                             <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl">
-                                <div className="text-2xl font-bold text-yellow-900">{(profile.referral_stats?.earned || 0).toLocaleString('ru-RU')} ₽</div>
+                                <div className="text-2xl font-bold text-yellow-900">
+                                    {(profile.referral_stats?.earned || 0).toLocaleString('ru-RU')} ₽
+                                </div>
                                 <div className="text-sm text-yellow-700 mt-1">Заработано с рефералов</div>
                             </div>
                         </div>

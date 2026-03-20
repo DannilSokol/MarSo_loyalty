@@ -38,8 +38,10 @@ func main() {
 
 	// Публичные роуты
 	{
-		api.POST("/auth/login", handlers.Auth.Login)
+		api.POST("/auth/login", handlers.Auth.LoginWithPassword)
 		api.POST("/admin/login", handlers.Admin.AdminLoginJWT)
+		api.POST("/auth/register", handlers.Auth.Register)
+		api.POST("/auth/login-password", handlers.Auth.LoginWithPassword)
 	}
 
 	// Клиентские защищённые

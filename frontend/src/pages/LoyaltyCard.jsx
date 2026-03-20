@@ -267,15 +267,13 @@ const LoyaltyCard = () => {
                                 <>
                                     <div className="p-4 bg-gray-50 rounded-xl">5% кэшбэк на каждое посещение</div>
                                     <div className="p-4 bg-gray-50 rounded-xl">Приоритетная запись</div>
-                                    <div className="p-4 bg-gray-50 rounded-xl">Бесплатный кофе при каждом визите</div>
                                 </>
                             )}
                             {level.title === 'Gold' && (
                                 <>
                                     <div className="p-4 bg-yellow-50 rounded-xl">10% кэшбэк на каждое посещение</div>
-                                    <div className="p-4 bg-yellow-50 rounded-xl">Персональный администратор</div>
-                                    <div className="p-4 bg-yellow-50 rounded-xl">Двойные бонусы в акциях</div>
-                                    <div className="p-4 bg-yellow-50 rounded-xl">Эксклюзивные подарки</div>
+                                    <div className="p-4 bg-yellow-50 rounded-xl">Приоритетная запись</div>
+                                    <div className="p-4 bg-yellow-50 rounded-xl">Эксклюзивные подарки в новый год</div>
                                 </>
                             )}
                         </div>

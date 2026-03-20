@@ -10,20 +10,20 @@ import (
 
 // Client — основная модель клиента
 type Client struct {
-	ID              uuid.UUID `json:"id"`
-	Phone           string    `json:"phone"`
-	NormalizedPhone string    `json:"normalized_phone,omitempty"`
-	PasswordHash    string    `json:"-"`
-	Name            string    `json:"name,omitempty"`
-	Email           string    `json:"email,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at,omitempty"`
-	TotalSpent      float64   `json:"total_spent"`
-	Balance         float64   `json:"balance"`
-	Level           string    `json:"level"` // bronze, silver, gold
-	Status          string    `json:"status,omitempty"`
-	LastVisitAt     time.Time `json:"last_visit_at,omitempty"`
-	ReferredBy      uuid.UUID `json:"referred_by,omitempty"`
+	ID              uuid.UUID  `json:"id"`
+	Phone           string     `json:"phone"`
+	NormalizedPhone string     `json:"normalized_phone,omitempty"`
+	PasswordHash    string     `json:"-"`
+	Name            *string    `json:"name,omitempty"`
+	Email           *string    `json:"email,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at,omitempty"`
+	TotalSpent      float64    `json:"total_spent"`
+	Balance         float64    `json:"balance"`
+	Level           string     `json:"level"` // bronze, silver, gold
+	Status          string     `json:"status,omitempty"`
+	LastVisitAt     *time.Time `json:"last_visit_at,omitempty"`
+	ReferredBy      uuid.UUID  `json:"referred_by,omitempty"`
 }
 
 // Visit — запись о посещении (без BarberID)

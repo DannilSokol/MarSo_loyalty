@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
 
@@ -73,4 +74,100 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	log.Printf("Login successful for phone: %s, client_id: %s", req.Phone, client.ID.String())
 	c.JSON(http.StatusOK, models.TokenResponse{Token: token})
+}
+func (h *AuthHandler) Register(c *gin.Context) {
+	var req struct {
+		Phone    string `json:"phone" binding:"required"`
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required,min=6"`
+	}
+
+	// 1. Парсим
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 2. Нормализуем телефон
+	normalized, err := utils.NormalizePhone(req.Phone)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 3. Проверяем существует ли клиент
+	existing, err := repository.Repo.GetClientByNormalizedPhone(c.Request.Context(), normalized)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Database error"})
+		return
+	}
+	if existing != nil {
+		c.JSON(400, gin.H{"error": "Пользователь уже существует"})
+		return
+	}
+
+	// 4. Хешируем пароль
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Ошибка хеширования"})
+		return
+	}
+
+	// 5. Создаём клиента
+	client, err := repository.Repo.CreateClientWithAuth(
+		c.Request.Context(),
+		req.Phone,
+		normalized,
+		req.Email,
+		string(hash),
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Ошибка создания пользователя"})
+		return
+	}
+
+	// 6. Генерим JWT
+	token, _ := utils.GenerateClientJWT(client.ID, client.Phone)
+
+	c.JSON(200, gin.H{
+		"token": token,
+	})
+}
+func (h *AuthHandler) LoginWithPassword(c *gin.Context) {
+	var req struct {
+		Phone    string `json:"phone"`
+		Password string `json:"password"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	normalized, err := utils.NormalizePhone(req.Phone)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	client, err := repository.Repo.GetClientByNormalizedPhone(c.Request.Context(), normalized)
+	if err != nil || client == nil {
+		c.JSON(401, gin.H{"error": "Неверные данные"})
+		return
+	}
+
+	// 🔐 Проверка пароля
+	err = bcrypt.CompareHashAndPassword(
+		[]byte(client.PasswordHash),
+		[]byte(req.Password),
+	)
+
+	if err != nil {
+		c.JSON(401, gin.H{"error": "Неверный пароль"})
+		return
+	}
+
+	token, _ := utils.GenerateClientJWT(client.ID, client.Phone)
+
+	c.JSON(200, gin.H{"token": token})
 }

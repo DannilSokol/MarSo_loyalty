@@ -1,7 +1,9 @@
+// frontend/src/pages/AdminScanner.jsx
+
 import React, { useState, useRef, useEffect } from 'react'
 import { adminAPI } from '../services/client'
 import {
-    Camera, X, CheckCircle, Scan, Key, Phone,
+    Camera, X, CheckCircle, Scan, Phone,
     ExternalLink, CreditCard, Loader2, Plus
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -14,8 +16,6 @@ const AdminScanner = () => {
     const [isScanning, setIsScanning] = useState(false)
     const [showPhoneSearch, setShowPhoneSearch] = useState(false)
     const [phoneNumber, setPhoneNumber] = useState('')
-    const [qrToken, setQrToken] = useState('')
-    const [showTokenInput, setShowTokenInput] = useState(false)
     const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
     const [showCreateVisit, setShowCreateVisit] = useState(false)
     const [visitAmount, setVisitAmount] = useState('1500')
@@ -36,10 +36,8 @@ const AdminScanner = () => {
 
     const resetAll = () => {
         setScanResult(null)
-        setQrToken('')
         setPhoneNumber('')
         setShowPhoneSearch(false)
-        setShowTokenInput(false)
         setIsScanning(false)
         setLoading(false)
         setShowSuccessOverlay(false)
@@ -80,10 +78,9 @@ const AdminScanner = () => {
                 const res = await adminAPI.getClientById(parsed.client_id)
                 clientData = res.data.client
             } else {
-                const res = await adminAPI.scanQR({ token: text })
-                if (res.data?.valid && res.data?.client) {
-                    clientData = res.data.client
-                }
+                // Эта ветка больше не используется, но оставляем на всякий случай
+                toast.error('Неизвестный формат QR')
+                return
             }
 
             if (clientData) {
@@ -127,9 +124,9 @@ const AdminScanner = () => {
 
             await adminAPI.createVisitWithBonus(payload)
             toast.success('Визит создан')
+
             setShowCreateVisit(false)
             resetAll()
-            navigate(`/admin/client/${scanResult.client.id}`)
         } catch (err) {
             toast.error(err.response?.data?.error || 'Ошибка')
         } finally {
@@ -170,12 +167,6 @@ const AdminScanner = () => {
         }
     }
 
-    const handleManualToken = (e) => {
-        e.preventDefault()
-        if (!qrToken.trim()) return toast.error('Введите токен')
-        processQRData(qrToken.trim())
-    }
-
     const formatPhoneInput = (value) => {
         const digits = value.replace(/\D/g, '')
         if (!digits) return ''
@@ -198,12 +189,12 @@ const AdminScanner = () => {
         const style = map[level?.toLowerCase()] || map.bronze
         return (
             <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-medium border ${style.bg} ${style.text} ${style.border}`}>
-        {level ? level.charAt(0).toUpperCase() + level.slice(1) : 'Bronze'}
-      </span>
+                {level ? level.charAt(0).toUpperCase() + level.slice(1) : 'Bronze'}
+            </span>
         )
     }
 
-    const activeMode = isScanning || showPhoneSearch || showTokenInput || showCreateVisit
+    const activeMode = isScanning || showPhoneSearch || showCreateVisit
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -248,8 +239,7 @@ const AdminScanner = () => {
                             <h2 className="text-2xl md:text-3xl font-bold text-[#501822]">
                                 {showCreateVisit ? 'Новый визит' :
                                     showPhoneSearch ? 'Поиск по номеру' :
-                                        showTokenInput ? 'Ручной ввод токена' :
-                                            isScanning ? 'Сканирование QR' : 'Выберите действие'}
+                                        isScanning ? 'Сканирование QR' : 'Выберите действие'}
                             </h2>
 
                             {activeMode && (
@@ -263,7 +253,7 @@ const AdminScanner = () => {
                         </div>
 
                         {!activeMode ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <button
                                     onClick={startScanner}
                                     className="p-8 border-2 border-gray-200 rounded-2xl hover:border-[#501822]/30 hover:bg-[#501822]/5 transition text-center group"
@@ -279,17 +269,8 @@ const AdminScanner = () => {
                                     <Phone className="h-12 w-12 text-[#501822] mx-auto mb-4 group-hover:scale-110 transition" />
                                     <div className="font-semibold text-lg">Номер телефона</div>
                                 </button>
-
-                                <button
-                                    onClick={() => setShowTokenInput(true)}
-                                    className="p-8 border-2 border-gray-200 rounded-2xl hover:border-[#501822]/30 hover:bg-[#501822]/5 transition text-center group"
-                                >
-                                    <Key className="h-12 w-12 text-[#501822] mx-auto mb-4 group-hover:scale-110 transition" />
-                                    <div className="font-semibold text-lg">Токен</div>
-                                </button>
                             </div>
                         ) : showCreateVisit && scanResult?.client ? (
-                            // ... (форма создания визита остаётся почти без изменений, только цвета подогнаны)
                             <div className="space-y-6">
                                 <div className="p-5 bg-gray-50 rounded-xl text-center border border-gray-200">
                                     <div className="font-medium text-lg mb-1">{scanResult.client.phone}</div>
@@ -393,31 +374,6 @@ const AdminScanner = () => {
                                         className="flex-1 bg-[#501822] text-white py-4 rounded-xl font-medium hover:bg-[#3e1420] transition disabled:opacity-60"
                                     >
                                         {loading ? 'Поиск...' : 'Найти клиента'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={resetAll}
-                                        className="flex-1 border border-gray-300 py-4 rounded-xl font-medium hover:bg-gray-50 transition"
-                                    >
-                                        Отмена
-                                    </button>
-                                </div>
-                            </form>
-                        ) : showTokenInput ? (
-                            <form onSubmit={handleManualToken} className="space-y-6">
-                <textarea
-                    value={qrToken}
-                    onChange={e => setQrToken(e.target.value)}
-                    placeholder="Вставьте содержимое QR-кода или токен"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-[#501822] focus:ring-1 focus:ring-[#501822]/30 h-32 font-mono resize-none"
-                />
-                                <div className="flex gap-4">
-                                    <button
-                                        type="submit"
-                                        disabled={loading || !qrToken.trim()}
-                                        className="flex-1 bg-[#501822] text-white py-4 rounded-xl font-medium hover:bg-[#3e1420] transition disabled:opacity-60"
-                                    >
-                                        Найти
                                     </button>
                                     <button
                                         type="button"

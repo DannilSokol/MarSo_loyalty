@@ -26,13 +26,13 @@ func (r *Repository) GetClientByNormalizedPhone(ctx context.Context, normPhone s
 	var client models.Client
 	var name, email *string
 	var referredBy *uuid.UUID
-
+	var passwordHash *string
 	err := database.DB.QueryRow(ctx,
-		`SELECT id, phone, normalized_phone, name, email, created_at, total_spent, balance, level, referred_by
+		`SELECT id, phone, normalized_phone, password_hash, name, email, created_at, total_spent, balance, level, referred_by
 		 FROM clients WHERE normalized_phone = $1`,
 		normPhone,
 	).Scan(
-		&client.ID, &client.Phone, &client.NormalizedPhone, &name, &email,
+		&client.ID, &client.Phone, &client.NormalizedPhone, &client.PasswordHash, &name, &email,
 		&client.CreatedAt, &client.TotalSpent, &client.Balance, &client.Level, &referredBy,
 	)
 	if err == pgx.ErrNoRows {
@@ -44,15 +44,17 @@ func (r *Repository) GetClientByNormalizedPhone(ctx context.Context, normPhone s
 	}
 
 	if name != nil {
-		client.Name = *name
+		client.Name = name
 	}
 	if email != nil {
-		client.Email = *email
+		client.Email = email
 	}
 	if referredBy != nil {
 		client.ReferredBy = *referredBy
 	}
-
+	if passwordHash != nil {
+		client.PasswordHash = *passwordHash
+	}
 	return &client, nil
 }
 
@@ -88,10 +90,10 @@ func (r *Repository) CreateClient(ctx context.Context, rawPhone, normPhone strin
 	}
 
 	if name != nil {
-		client.Name = *name
+		client.Name = name
 	}
 	if email != nil {
-		client.Email = *email
+		client.Email = email
 	}
 	if returnedReferredBy != nil {
 		client.ReferredBy = *returnedReferredBy
@@ -131,10 +133,10 @@ func (r *Repository) GetClientByID(ctx context.Context, id uuid.UUID) (*models.C
 	}
 
 	if name != nil {
-		client.Name = *name
+		client.Name = name
 	}
 	if email != nil {
-		client.Email = *email
+		client.Email = email
 	}
 	if referredBy != nil {
 		client.ReferredBy = *referredBy
@@ -188,10 +190,10 @@ func (r *Repository) GetAllClients(ctx context.Context) ([]models.Client, error)
 			return nil, err
 		}
 		if name != nil {
-			c.Name = *name
+			c.Name = name
 		}
 		if email != nil {
-			c.Email = *email
+			c.Email = email
 		}
 		clients = append(clients, c)
 	}
@@ -690,10 +692,10 @@ func (r *Repository) ValidateQRToken(ctx context.Context, token string) (*models
 	}
 
 	if name != nil {
-		client.Name = *name
+		client.Name = name
 	}
 	if email != nil {
-		client.Email = *email
+		client.Email = email
 	}
 
 	return &client, nil
@@ -950,4 +952,33 @@ func (r *Repository) GetReferralStats(ctx context.Context, clientID uuid.UUID) (
 	}
 
 	return &stats, nil
+}
+func (r *Repository) CreateClientWithAuth(
+	ctx context.Context,
+	phone, normalized, email, passwordHash string,
+) (*models.Client, error) {
+
+	var client models.Client
+
+	err := database.DB.QueryRow(ctx,
+		`INSERT INTO clients (phone, normalized_phone, email, password_hash, level)
+		 VALUES ($1, $2, $3, $4, 'bronze')
+		 RETURNING id, phone, normalized_phone, email, created_at, total_spent, balance, level`,
+		phone, normalized, email, passwordHash,
+	).Scan(
+		&client.ID,
+		&client.Phone,
+		&client.NormalizedPhone,
+		&client.Email,
+		&client.CreatedAt,
+		&client.TotalSpent,
+		&client.Balance,
+		&client.Level,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &client, nil
 }

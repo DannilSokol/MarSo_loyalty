@@ -15,6 +15,7 @@ import AdminVisits from './pages/AdminVisits.jsx'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import AdminClientProfile from './pages/AdminClientProfile.jsx'
 import './styles/global.css'
+import Register from "./pages/Register.jsx";
 
 function App() {
     return (
@@ -33,7 +34,7 @@ function App() {
                 <Routes>
                     {/* Публичный маршрут логина */}
                     <Route path="/login" element={<Login />} />
-
+                    <Route path="/register" element={<Register />} />
                     {/* Защищённые роуты клиента — используем вложенность с Outlet */}
                     <Route element={
                         <ProtectedRoute>
