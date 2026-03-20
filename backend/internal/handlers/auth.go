@@ -77,25 +77,37 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req struct {
-		Phone    string `json:"phone" binding:"required"`
-		Email    string `json:"email" binding:"required,email"`
+		Phone    string `json:"phone"    binding:"required"`
+		Email    string `json:"email"    binding:"required,email"`
 		Password string `json:"password" binding:"required,min=6"`
+		Ref      string `json:"ref,omitempty"` // ← добавляем
 	}
 
-	// 1. Парсим
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 2. Нормализуем телефон
 	normalized, err := utils.NormalizePhone(req.Phone)
 	if err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 3. Проверяем существует ли клиент
+	// Проверка уникальности email
+	if req.Email != "" {
+		exists, err := repository.Repo.ClientExistsByEmail(c.Request.Context(), req.Email)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Ошибка проверки email"})
+			return
+		}
+		if exists {
+			c.JSON(400, gin.H{"error": "Email уже используется"})
+			return
+		}
+	}
+
+	// Проверка телефона (как было)
 	existing, err := repository.Repo.GetClientByNormalizedPhone(c.Request.Context(), normalized)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Database error"})
@@ -106,32 +118,39 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 4. Хешируем пароль
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Ошибка хеширования"})
 		return
 	}
 
-	// 5. Создаём клиента
+	var referredBy *uuid.UUID
+	if req.Ref != "" {
+		if id, err := uuid.Parse(req.Ref); err == nil {
+			referredBy = &id
+		}
+	}
+
 	client, err := repository.Repo.CreateClientWithAuth(
 		c.Request.Context(),
 		req.Phone,
 		normalized,
 		req.Email,
 		string(hash),
+		referredBy, // ← передаём
 	)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Ошибка создания пользователя"})
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 6. Генерим JWT
-	token, _ := utils.GenerateClientJWT(client.ID, client.Phone)
+	token, err := utils.GenerateClientJWT(client.ID, client.Phone)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Ошибка генерации токена"})
+		return
+	}
 
-	c.JSON(200, gin.H{
-		"token": token,
-	})
+	c.JSON(200, gin.H{"token": token})
 }
 func (h *AuthHandler) LoginWithPassword(c *gin.Context) {
 	var req struct {

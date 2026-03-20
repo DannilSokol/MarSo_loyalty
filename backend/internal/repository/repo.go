@@ -953,32 +953,89 @@ func (r *Repository) GetReferralStats(ctx context.Context, clientID uuid.UUID) (
 
 	return &stats, nil
 }
+
+// Файл: internal/repository/repo.go
+
 func (r *Repository) CreateClientWithAuth(
 	ctx context.Context,
 	phone, normalized, email, passwordHash string,
+	referredBy *uuid.UUID,
 ) (*models.Client, error) {
 
 	var client models.Client
+	var name *string
+	var returnedReferredBy *uuid.UUID
 
-	err := database.DB.QueryRow(ctx,
-		`INSERT INTO clients (phone, normalized_phone, email, password_hash, level)
-		 VALUES ($1, $2, $3, $4, 'bronze')
-		 RETURNING id, phone, normalized_phone, email, created_at, total_spent, balance, level`,
-		phone, normalized, email, passwordHash,
-	).Scan(
-		&client.ID,
-		&client.Phone,
-		&client.NormalizedPhone,
-		&client.Email,
-		&client.CreatedAt,
-		&client.TotalSpent,
-		&client.Balance,
-		&client.Level,
-	)
-
-	if err != nil {
-		return nil, err
+	if referredBy != nil {
+		// С рефералом
+		err := database.DB.QueryRow(ctx,
+			`INSERT INTO clients (
+                phone, normalized_phone, email, password_hash, level, referred_by
+            ) VALUES ($1, $2, $3, $4, 'bronze', $5)
+            RETURNING id, phone, normalized_phone, name, email, created_at, total_spent, balance, level, referred_by`,
+			phone, normalized, email, passwordHash, *referredBy,
+		).Scan(
+			&client.ID,
+			&client.Phone,
+			&client.NormalizedPhone,
+			&name,
+			&client.Email,
+			&client.CreatedAt,
+			&client.TotalSpent,
+			&client.Balance,
+			&client.Level,
+			&returnedReferredBy,
+		)
+		if err != nil {
+			log.Printf("CreateClientWithAuth (with ref) error: %v", err)
+			return nil, err
+		}
+	} else {
+		// Без реферала
+		err := database.DB.QueryRow(ctx,
+			`INSERT INTO clients (
+                phone, normalized_phone, email, password_hash, level
+            ) VALUES ($1, $2, $3, $4, 'bronze')
+            RETURNING id, phone, normalized_phone, name, email, created_at, total_spent, balance, level, referred_by`,
+			phone, normalized, email, passwordHash,
+		).Scan(
+			&client.ID,
+			&client.Phone,
+			&client.NormalizedPhone,
+			&name,
+			&client.Email,
+			&client.CreatedAt,
+			&client.TotalSpent,
+			&client.Balance,
+			&client.Level,
+			&returnedReferredBy,
+		)
+		if err != nil {
+			log.Printf("CreateClientWithAuth (no ref) error: %v", err)
+			return nil, err
+		}
 	}
 
+	if name != nil {
+		client.Name = name
+	}
+	if returnedReferredBy != nil {
+		client.ReferredBy = *returnedReferredBy
+	}
+
+	log.Printf("Created client with auth: %s | phone=%s | email=%s | referred_by=%v",
+		client.ID, phone, email, referredBy)
+
 	return &client, nil
+}
+func (r *Repository) ClientExistsByEmail(ctx context.Context, email string) (bool, error) {
+	var count int
+	err := database.DB.QueryRow(ctx,
+		`SELECT COUNT(*) FROM clients WHERE email = $1`,
+		email,
+	).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

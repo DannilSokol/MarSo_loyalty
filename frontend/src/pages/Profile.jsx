@@ -47,7 +47,7 @@ const Profile = () => {
     }
 
     const copyReferralLink = () => {
-        const link = `${window.location.origin}/login?ref=${profile.id}`
+        const link = `${window.location.origin}/register?ref=${profile.id}`  // <-- Ссылка на регистрацию с реф
         navigator.clipboard.writeText(link)
         toast.success('Реферальная ссылка скопирована')
     }
@@ -179,7 +179,7 @@ const Profile = () => {
                         </div>
                     </div>
 
-                    {/* Прогресс и статистика — обновлённый красивый блок */}
+                    {/* Прогресс и статистика */}
                     <div className="bg-white rounded-2xl border border-gray-200/70 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
                         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
                             <Award className="h-6 w-6 sm:h-7 sm:w-7 text-marso" />
@@ -297,7 +297,7 @@ const Profile = () => {
                         </div>
                     </div>
 
-                    {/* Реферальная кнопка и статистика */}
+                    {/* Реферальная кнопка */}
                     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                             <Share2 className="h-5 w-5 text-marso" />
